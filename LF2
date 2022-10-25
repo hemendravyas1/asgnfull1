@@ -1,0 +1,95 @@
+import boto3
+import json
+import random
+from boto3.dynamodb.conditions import Key
+import requests
+import logging
+import datetime
+from decimal import *
+#from elasticSearch import putRequests
+from time import sleep
+#from urlparse import urljoin
+
+
+
+logger = logging.getLogger()
+logger.setLevel(logging.DEBUG)
+
+API_KEY = 'i6l6v0wa7k0s5gayobfIU2Xi1SaLkbNEMT4CvGQqiNceLuBhU1N2lVUxwNlXuGVdJEUJuGsEHvur-C5Ab-pXtzy_HlIOQGzIPiMo6t2cEJi-yCWreUEZdq0mvHFQY3Yx'
+dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
+table = dynamodb.Table('yelp-restaurants')
+
+# API constants
+API_HOST = 'https://api.yelp.com'
+SEARCH_PATH = '/v3/businesses/search'
+BUSINESS_PATH = '/v3/businesses/'  # Business ID will come after slash.
+DEFAULT_TERM = 'Indian food'
+DEFAULT_LOCATION = 'New York City, NY'
+SEARCH_LIMIT = 2
+#TOKEN_PATH = '/oauth2/token'
+#GRANT_TYPE = 'client_credentials'
+headers = {'Authorization': 'Bearer {}'.format(API_KEY)}
+
+
+def lambda_handler(event, context):
+    pollSNS()
+    # print('\n',yelpResult)
+    # insertIntoDynamo()
+
+
+def pollSNS():
+    logger.info('finally inside message hemendravyas')
+    client = boto3.client('sqs')
+    #sms_client = boto3.client('sns')
+
+    #queues = client.list_queues(QueueNamePrefix='diningsearch')  # we filter to narrow down the list
+    test_queue_url = 'https://sqs.us-east-1.amazonaws.com/982478973590/diningsearch'
+
+    logger.info('I am here')
+    logger.info(test_queue_url)
+    while True:
+        # response = client.receive_message(QueueUrl=test_queue_url,AttributeNames=['ALL'],MaxNumberOfMessages=5) # adjust MaxNumberOfMessages if needed
+        # Receive message from SQS queue
+        response = client.receive_message(
+            QueueUrl=test_queue_url,
+            AttributeNames=[
+                'All'
+            ],
+            MaxNumberOfMessages=1,
+            MessageAttributeNames=[
+                'All'
+            ],
+            VisibilityTimeout=0,
+            WaitTimeSeconds=0
+        )
+
+        if 'Messages' in response:  # when the queue is exhausted, the response dict contains no 'Messages' key
+            for message in response['Messages']:  # 'Messages' is a list
+                #js = json.loads(message['Body'])
+                city=message['MessageAttributes']['city']['StringValue']
+                state=message['MessageAttributes']['state']['StringValue']
+                cuisine=message['MessageAttributes']['foodtype']['StringValue']
+                noofpeople=message['MessageAttributes']['noofpeople']['StringValue']
+                partydate= message['MessageAttributes']['partydate']['StringValue']
+                partytime=message['MessageAttributes']['partytime']['StringValue']
+                phone = message['MessageAttributes']['phone']['StringValue']
+
+                #url = 'https://search-restaurant-domain-Hxsd04Fa9BflS-BVD8X1Lg.us-east-1.es.amazonaws.com/restaurants/restaurant/_search?from=0&&size=1&&q=Cuisine:' + cuisine
+                url='https://api.yelp.com/v3/businesses/search'
+                #url = 'https://search-restaurants-Hxsd04Fa9BflS-BVD8X1Lg.us-east-1.es.amazonaws.com/{}'
+                url_params = {
+                    'location': DEFAULT_LOCATION,
+                    'limit': SEARCH_LIMIT
+                    }
+                resp = requests.get(url, headers=headers,params=url_params).json()
+                logger.info(resp)
+
+                # print the keys and values
+                for item in resp:
+                    logger.info(item)
+                    iden=['businesses']
+                    logger.info(iden)
+
+        else:
+            print('Queue is now empty')
+            break
